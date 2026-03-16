@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.pyc
+
+# Environnement virtuel
+.venv/
+venv/
+
+# Fichiers temporaires de ton appli
+temp_graph.png
+
+# Base de données locale (optionnel, selon si tu veux la partager ou non)
+*.db
+
+# Fichiers système
+.DS_Store
+Thumbs.db
