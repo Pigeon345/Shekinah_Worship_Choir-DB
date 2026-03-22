@@ -41,12 +41,22 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             membre_id INTEGER,
             montant REAL NOT NULL CHECK(montant >= 0),
-            type TEXT NOT NULL CHECK(type IN ('Cotisation', 'Don')),
+            type TEXT NOT NULL CHECK(type IN ('Cotisation', 'Don', 'Autre')),
             motif TEXT,
+            source TEXT,
+            devise TEXT DEFAULT 'FC',
             date_paiement DATE DEFAULT (date('now')),
             FOREIGN KEY (membre_id) REFERENCES membres(id)
         )
     ''')
+
+    # Si base existante sans source/devise, ajouter colonne idempotent
+    cursor.execute("PRAGMA table_info(finances)")
+    finances_cols = [row[1] for row in cursor.fetchall()]
+    if 'source' not in finances_cols:
+        cursor.execute("ALTER TABLE finances ADD COLUMN source TEXT")
+    if 'devise' not in finances_cols:
+        cursor.execute("ALTER TABLE finances ADD COLUMN devise TEXT DEFAULT 'FC'")
     
     # Table communiques
     cursor.execute('''

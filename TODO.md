@@ -1,20 +1,27 @@
-# TODO Shekinah v2.4 - Page Détail Membre ✅ TERMINÉ
+# TODO - Améliorations App Shekinah Choir (Plan Approuvé)
 
-**Fonctionnalités ajoutées :**
-1. ✅ **db_models.py** : get_membre_by_id, update_membre, get_finances_membre, get_presences_membre, supprimer_membre (soft delete)
-2. ✅ **app.py** : 
-   - Double-clic Treeview → MemberDetailDialog(ID)
-   - **MemberDetailDialog** : Tabs Infos(éditable)/Finances(liste)/Présences(liste)
-   - Édition complète + Sauvegarder/Supprimer
-   - trace_add (fix déprecation)
-3. ✅ **Test prêt** : `python app.py` → Membres → double-clic ligne → page complète
+## Étape 1: Créer TODO.md ✅ [Terminé]
 
-**Utilisation :**
-- 👥 Membres → double-clic ligne → onglets Infos(éditer)/Finances/Présences
-- Modifier infos → 💾 Sauvegarder → refresh table
-- 🗑️ Désactiver (soft)
+## Étape 2: Implémenter corrections techniques dans app.py
+- [✅] Fix logo avec justify="center"
+- [✅] Graphique avec BytesIO (no disk file)
+- [✅] Lisibilité axes (tight_layout + margins)
 
-**Parfait !** App sans limites, profil détaillé. 🎉
+## Étape 3: Améliorations UI/UX dans app.py
+- [✅] Indicateur onglet actif (update_nav_styles)
+- [✅] Cartes stats uniformes avec icônes 💰👥📝
+- [✅] Marges/padding augmentés
 
+## Étape 4: Responsive design
+- [✅] Bind <Configure> pour resize dynamique
+- [✅] Tailles relatives (grid weights, % screen)
 
+## Étape 5: Tests & Validation
+- [✅] Lancer `python app.py`
+- [✅] Vérifier: logo, graph no file, nav highlight, responsive
+- [✅] Mise à jour TODO.md avec ✅
 
+## Étape 6: Finaliser
+- [✅] attempt_completion avec démo commande
+
+**Tâche terminée ! 🎉**

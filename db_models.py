@@ -2,13 +2,14 @@ import sqlite3
 from contextlib import contextmanager
 from typing import Optional, List
 import pandas as pd
-from datetime import date
+from datetime import date, datetime
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 import io
 import base64
 from pandas.io.formats.style import Styler
+from database import init_db
 
 class ShekinahDB:
     DB_PATH = 'shekinah_choir.db'
@@ -40,17 +41,41 @@ class ShekinahDB:
             conn.commit()
             return cursor.lastrowid
 
-    def ajouter_finances(self, membre_id: int, montant: float, type_p: str, motif: str = '') -> bool:
-        if not self.validate_data('', montant):
+    def ajouter_finances(self, membre_id: int = None, montant: float = 0, type_p: str = 'Cotisation', motif: str = '', source: str = None, date_paiement: str = None, devise: str = 'FC') -> bool:
+        # 1) vérification montant
+        if montant is None or montant <= 0:
             return False
+
+        # 1b) devise
+        if devise not in ('FC', '$'):
+            devise = 'FC'
+
+        # 2) type permis
+        if type_p not in ('Cotisation', 'Don', 'Autre'):
+            type_p = 'Don' if type_p.lower() == 'don' else 'Cotisation'
+
+        # 3) date
+        if date_paiement:
+            try:
+                datetime.strptime(date_paiement, "%Y-%m-%d")
+            except ValueError:
+                return False
+
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute('''
-                INSERT INTO finances (membre_id, montant, type, motif)
-                VALUES (?, ?, ?, ?)
-            ''', (membre_id, montant, type_p, motif))
+            if date_paiement:
+                cursor.execute('''
+                    INSERT INTO finances (membre_id, montant, type, motif, source, devise, date_paiement)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                ''', (membre_id, montant, type_p, motif, source, devise, date_paiement))
+            else:
+                cursor.execute('''
+                    INSERT INTO finances (membre_id, montant, type, motif, source, devise)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                ''', (membre_id, montant, type_p, motif, source, devise))
+
             conn.commit()
-            return True
+            return cursor.rowcount > 0
 
     def ajouter_communique(self, titre: str, contenu: str, priorite: str = 'Normal') -> int:
         with self.get_connection() as conn:
@@ -71,9 +96,33 @@ class ShekinahDB:
             )
         return df
 
-    def get_membres(self) -> pd.DataFrame:
+    def get_membres(self, statut: str = None, pupitre: str = None, include_inactifs: bool = False) -> pd.DataFrame:
+        query = "SELECT * FROM membres WHERE 1=1"
+        params = []
+
+        if not include_inactifs:
+            query += " AND actif=1"
+
+        if statut:
+            query += " AND statut = ?"
+            params.append(statut)
+
+        if pupitre:
+            query += " AND pupitre = ?"
+            params.append(pupitre)
+
+        query += " ORDER BY pupitre, nom"
+
         with self.get_connection() as conn:
-            return pd.read_sql_query("SELECT * FROM membres WHERE actif=1 ORDER BY pupitre, nom", conn)
+            return pd.read_sql_query(query, conn, params=params)
+
+    def supprimer_membre(self, membre_id: int) -> bool:
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            # Soft-delete: marquer comme inactif au lieu de supprimer vraiment
+            cursor.execute("UPDATE membres SET actif = 0, statut = 'Suspendu' WHERE id = ?", (membre_id,))
+            conn.commit()
+            return cursor.rowcount > 0
 
     def get_membre_by_id(self, membre_id: int) -> pd.DataFrame:
         """Détails complet membre par ID."""
@@ -113,17 +162,49 @@ class ShekinahDB:
                 conn, params=(membre_id,)
             )
 
-    def supprimer_membre(self, membre_id: int) -> bool:
-        """Désactiver membre (soft delete)."""
+    def ajouter_presence(self, membre_id: int, date_seance: str, present: int, commentaire: str = "") -> bool:
+        """Ajouter ou mettre à jour une présence pour un membre."""
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("UPDATE membres SET actif=0 WHERE id = ?", (membre_id,))
-            conn.commit()
-            return cursor.rowcount > 0
+            try:
+                # Vérifier si une présence existe déjà pour cette date
+                cursor.execute(
+                    "SELECT id FROM presences WHERE membre_id = ? AND seance_date = ?",
+                    (membre_id, date_seance)
+                )
+                existing = cursor.fetchone()
+
+                if existing:
+                    # Mettre à jour la présence existante
+                    cursor.execute("""
+                        UPDATE presences
+                        SET present = ?, commentaire = ?
+                        WHERE membre_id = ? AND seance_date = ?
+                    """, (present, commentaire, membre_id, date_seance))
+                else:
+                    # Ajouter une nouvelle présence
+                    cursor.execute("""
+                        INSERT INTO presences (membre_id, seance_date, present, commentaire)
+                        VALUES (?, ?, ?, ?)
+                    """, (membre_id, date_seance, present, commentaire))
+
+                conn.commit()
+                return True
+            except Exception as e:
+                print(f"Erreur ajout présence: {e}")
+                conn.rollback()
+                return False
 
     def get_finances(self) -> pd.DataFrame:
         with self.get_connection() as conn:
             return pd.read_sql_query("SELECT * FROM finances ORDER BY date_paiement DESC", conn)
+
+    def supprimer_finance(self, finance_id: int) -> bool:
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM finances WHERE id = ?", (finance_id,))
+            conn.commit()
+            return cursor.rowcount > 0
 
     def get_communiques(self) -> pd.DataFrame:
         with self.get_connection() as conn:
@@ -195,3 +276,9 @@ class ShekinahDB:
 
 # Instance globale
 db = ShekinahDB()
+
+# Initialiser DB au démarrage du module
+try:
+    init_db()
+except Exception as e:
+    print(f"⚠️ Attention: Impossible d'initialiser DB: {e}")

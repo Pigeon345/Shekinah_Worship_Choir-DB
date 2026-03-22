@@ -3,15 +3,17 @@ import os
 
 # Build .exe autonome (single file)
 PyInstaller.__main__.run([
-    'main.py',
+    'runp.py',
     '--onefile',
     '--windowed',  # Pas de console
     '--name=Shekinah_Choir_Manager',
-    '--icon=icon.ico',  # Ajouter icône si disponible
-    '--add-data=*.db;.',
+    # '--icon=icon.ico',  # Décommenter si icône disponible
+    '--add-data=shekinah_choir.db;.',
     '--hidden-import=customtkinter',
     '--hidden-import=pandas',
     '--hidden-import=openpyxl',
+    '--hidden-import=sqlite3',
+    '--hidden-import=matplotlib',
     '--collect-all=customtkinter',
 ])
 
